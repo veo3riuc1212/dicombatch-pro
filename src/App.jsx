@@ -123,6 +123,9 @@ export default function App() {
               onFileUpload={handleFileUpload}
               onClearDataset={clearPreviousDataset}
               seriesData={seriesData}
+              slices={slices}
+              currentSliceIndex={currentSliceIndex}
+              setCurrentSliceIndex={setCurrentSliceIndex}
               selectedSlice={selectedSlice}
               onSelectSeries={() => {}}
               onContinue={() => setCurrentStep(2)}

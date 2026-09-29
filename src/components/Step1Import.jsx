@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { 
   UploadCloud, 
   FolderPlus, 
@@ -10,7 +10,11 @@ import {
   Sparkles,
   Server,
   Layers,
-  Trash2
+  Trash2,
+  ChevronLeft,
+  ChevronRight,
+  Play,
+  Pause
 } from 'lucide-react';
 
 export default function Step1Import({ 
@@ -18,12 +22,39 @@ export default function Step1Import({
   onFileUpload, 
   onClearDataset,
   seriesData, 
+  slices = [],
+  currentSliceIndex = 0,
+  setCurrentSliceIndex,
   selectedSlice, 
   onSelectSeries, 
   onContinue 
 }) {
   const fileInputRef = useRef(null);
   const folderInputRef = useRef(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  const totalSlices = slices.length || (seriesData ? seriesData.sliceCount : 120);
+
+  // Cine Playback for Sample Thumbnail
+  useEffect(() => {
+    let interval;
+    if (isPlaying && totalSlices > 0 && setCurrentSliceIndex) {
+      interval = setInterval(() => {
+        setCurrentSliceIndex((prev) => (prev + 1) % totalSlices);
+      }, 100); // 10 fps
+    }
+    return () => clearInterval(interval);
+  }, [isPlaying, totalSlices, setCurrentSliceIndex]);
+
+  const handlePrevSlice = () => {
+    if (!setCurrentSliceIndex || totalSlices === 0) return;
+    setCurrentSliceIndex((prev) => (prev > 0 ? prev - 1 : totalSlices - 1));
+  };
+
+  const handleNextSlice = () => {
+    if (!setCurrentSliceIndex || totalSlices === 0) return;
+    setCurrentSliceIndex((prev) => (prev < totalSlices - 1 ? prev + 1 : 0));
+  };
 
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -265,25 +296,94 @@ export default function Step1Import({
         {/* Right 1 Column: Sample Thumbnail & DICOM Parameters */}
         <div className="space-y-5">
           
-          {/* Sample Thumbnail Box */}
+          {/* Sample Thumbnail Box with Interactive Slice Navigation */}
           <div className="bg-[#0f172a] border border-slate-800 rounded-xl p-4 space-y-3">
             <div className="flex justify-between items-center text-xs">
               <span className="font-bold text-white uppercase tracking-wider">Miniatura de Muestra</span>
-              <span className="font-mono text-cyan-400 font-semibold">Corte #60/{seriesData ? seriesData.sliceCount : 120}</span>
+              <div className="flex items-center gap-1.5 font-mono">
+                <button
+                  onClick={handlePrevSlice}
+                  className="p-1 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition-colors"
+                  title="Corte anterior (<)"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+
+                <span className="text-cyan-400 font-bold px-1 text-[11px]">
+                  Corte #{currentSliceIndex + 1}/{totalSlices}
+                </span>
+
+                <button
+                  onClick={handleNextSlice}
+                  className="p-1 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition-colors"
+                  title="Corte siguiente (>)"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
 
-            <div className="relative aspect-square bg-black rounded-lg overflow-hidden border border-slate-800 group">
+            {/* Interactive Image Container with Navigation Overlay */}
+            <div className="relative aspect-square bg-black rounded-lg overflow-hidden border border-slate-800 group select-none">
               <SampleSliceCanvas slice={selectedSlice} />
               
+              {/* Left Overlay Nav Button */}
+              <button
+                onClick={handlePrevSlice}
+                className="absolute left-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/60 hover:bg-cyan-500 hover:text-slate-950 text-white transition-all opacity-80 group-hover:opacity-100 border border-slate-700/60 shadow-lg"
+                title="Corte Anterior"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+
+              {/* Right Overlay Nav Button */}
+              <button
+                onClick={handleNextSlice}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/60 hover:bg-cyan-500 hover:text-slate-950 text-white transition-all opacity-80 group-hover:opacity-100 border border-slate-700/60 shadow-lg"
+                title="Corte Siguiente"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+
               {/* Overlay Annotations */}
-              <div className="absolute top-2 left-2 text-[10px] font-mono text-cyan-300 bg-black/70 px-1.5 py-0.5 rounded">
-                L: -600 W: 1500 [PULMÓN]
+              <div className="absolute top-2 left-2 text-[10px] font-mono text-cyan-300 bg-black/80 px-1.5 py-0.5 rounded border border-slate-800">
+                L: {selectedSlice ? selectedSlice.windowCenter : -600} W: {selectedSlice ? selectedSlice.windowWidth : 1500} [PULMÓN]
               </div>
-              <div className="absolute bottom-2 left-2 text-[10px] font-mono text-slate-300 bg-black/70 px-1.5 py-0.5 rounded">
-                FOV: 350 mm
+              <div className="absolute top-2 right-2 text-[10px] font-mono text-slate-300 bg-black/80 px-1.5 py-0.5 rounded border border-slate-800">
+                Z: {selectedSlice ? selectedSlice.zPos : '0.00'} mm
               </div>
-              <div className="absolute bottom-2 right-2 text-[10px] font-mono text-slate-300 bg-black/70 px-1.5 py-0.5 rounded">
-                Slice Thk: 1.0mm
+              <div className="absolute bottom-2 left-2 text-[10px] font-mono text-slate-300 bg-black/80 px-1.5 py-0.5 rounded border border-slate-800">
+                FOV: {selectedSlice ? selectedSlice.fov : 350} mm
+              </div>
+              <div className="absolute bottom-2 right-2 text-[10px] font-mono text-slate-300 bg-black/80 px-1.5 py-0.5 rounded border border-slate-800">
+                Slice Thk: {selectedSlice ? selectedSlice.sliceThickness : 1.0}mm
+              </div>
+            </div>
+
+            {/* Interactive Slider & Cine Controls */}
+            <div className="space-y-2 pt-1">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setIsPlaying(!isPlaying)}
+                  className={`p-1.5 rounded-lg border text-xs font-mono font-bold flex items-center gap-1 transition-all ${
+                    isPlaying 
+                      ? 'bg-amber-500 text-slate-950 border-amber-400' 
+                      : 'bg-cyan-950/80 text-cyan-300 border-cyan-500/40 hover:bg-cyan-900/60'
+                  }`}
+                  title={isPlaying ? 'Pausar avance automático' : 'Iniciar avance automático cine'}
+                >
+                  {isPlaying ? <Pause className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current" />}
+                  <span>{isPlaying ? 'Pausar' : 'Cine'}</span>
+                </button>
+
+                <input
+                  type="range"
+                  min="0"
+                  max={Math.max(0, totalSlices - 1)}
+                  value={currentSliceIndex}
+                  onChange={(e) => setCurrentSliceIndex && setCurrentSliceIndex(Number(e.target.value))}
+                  className="flex-1 accent-cyan-500 bg-slate-900 h-2 rounded-lg cursor-pointer"
+                />
               </div>
             </div>
           </div>
